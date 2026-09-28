@@ -1,4 +1,21 @@
 local M = {}
+local wsl_switch
+
+local function linux_switch()
+  if vim.fn.executable("fcitx5-remote") == 1 then
+    return function()
+      if tonumber(vim.fn.system("fcitx5-remote")) == 2 then
+        vim.fn.system("fcitx5-remote -c")
+      end
+    end
+  end
+
+  if vim.fn.executable("ibus") == 1 then
+    return function()
+      vim.fn.system("ibus engine xkb:us::eng")
+    end
+  end
+end
 
 function M.detect()
 
@@ -84,6 +101,11 @@ function M.detect()
     or (sys == "Linux" and (vim.env.WSL_DISTRO_NAME ~= nil or vim.env.WSL_INTEROP ~= nil))
 
   if is_wsl then
+    if wsl_switch then
+      return wsl_switch
+    end
+
+    local fallback = linux_switch()
     local ps_cmd = nil
     if vim.fn.executable("powershell.exe") == 1 then
       ps_cmd = "powershell.exe"
@@ -92,14 +114,50 @@ function M.detect()
     end
 
     if ps_cmd then
-      local job_id = vim.fn.jobstart({ ps_cmd, "-NoProfile", "-NonInteractive", "-Command", "-" }, {
+      local job_id
+      local ready, failed = false, false
+
+      local function use_fallback()
+        if fallback then
+          fallback()
+        end
+      end
+
+      local function send_switch()
+        local ok, sent = pcall(vim.fn.chansend, job_id, "[WinIME]::ToLatin()\r\n")
+        if not ok or sent <= 0 then
+          failed = true
+          use_fallback()
+        end
+      end
+
+      job_id = vim.fn.jobstart({ ps_cmd, "-NoProfile", "-NonInteractive", "-Command", "-" }, {
         pty = false,
         stdin = "pipe",
+        on_stdout = function(_, lines)
+          for _, line in ipairs(lines) do
+            if line:find("AUTO_IME_READY", 1, true) then
+              ready = true
+            elseif line:find("AUTO_IME_FAILED", 1, true) then
+              failed = true
+              ready = false
+              if job_id then
+                pcall(vim.fn.jobstop, job_id)
+              end
+            end
+          end
+        end,
+        on_exit = function()
+          job_id = nil
+          ready = false
+          failed = true
+        end,
       })
 
       if job_id > 0 then
         local init_script = table.concat({
-          'Add-Type @"',
+          "try {",
+          'Add-Type -ErrorAction Stop -TypeDefinition @"',
           "using System;",
           "using System.Runtime.InteropServices;",
           "public class WinIME {",
@@ -116,58 +174,54 @@ function M.detect()
           "    }",
           "}",
           '"@',
+          '  [Console]::Out.WriteLine("AUTO_IME_READY")',
+          "} catch {",
+          '  [Console]::Out.WriteLine("AUTO_IME_FAILED")',
+          "}",
         }, "\r\n")
 
-        vim.fn.chansend(job_id, init_script .. "\r\n")
+        local ok, sent = pcall(vim.fn.chansend, job_id, init_script .. "\r\n\r\n")
+        if not ok or sent <= 0 then
+          pcall(vim.fn.jobstop, job_id)
+          return fallback
+        end
+
+        vim.defer_fn(function()
+          if not ready and not failed and job_id then
+            failed = true
+            pcall(vim.fn.jobstop, job_id)
+          end
+        end, 10000)
 
         vim.api.nvim_create_autocmd("VimLeavePre", {
           callback = function()
-            pcall(vim.fn.chanclose, job_id, "stdin")
+            if job_id then
+              pcall(vim.fn.jobstop, job_id)
+            end
           end,
         })
 
-        return function()
-          pcall(vim.fn.chansend, job_id, "[WinIME]::ToLatin()\r\n")
+        wsl_switch = function()
+          if failed then
+            return use_fallback()
+          end
+          if not ready then
+            return
+          end
+          send_switch()
         end
+        return wsl_switch
       end
     end
 
-    -- Fallback for WSLg (Linux GUI desktop) with fcitx5 / ibus
-    if vim.fn.executable("fcitx5-remote") == 1 then
-      return function()
-        if tonumber(vim.fn.system("fcitx5-remote")) == 2 then
-          vim.fn.system("fcitx5-remote -c")
-        end
-      end
-    end
-
-    if vim.fn.executable("ibus") == 1 then
-      return function()
-        vim.fn.system("ibus engine xkb:us::eng")
-      end
-    end
-
-    return nil
+    return fallback
   end
 
   ------------------------------------------------
   -- Linux
   ------------------------------------------------
   if sys == "Linux" then
-
-    if vim.fn.executable("fcitx5-remote") == 1 then
-      return function()
-        if tonumber(vim.fn.system("fcitx5-remote")) == 2 then
-          vim.fn.system("fcitx5-remote -c")
-        end
-      end
-    end
-
-    if vim.fn.executable("ibus") == 1 then
-      return function()
-        vim.fn.system("ibus engine xkb:us::eng")
-      end
-    end
+    return linux_switch()
   end
 
   ------------------------------------------------
