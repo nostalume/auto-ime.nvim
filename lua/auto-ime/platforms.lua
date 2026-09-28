@@ -18,7 +18,6 @@ local function linux_switch()
 end
 
 function M.detect()
-
   local uv = vim.uv or vim.loop
   local sys = uv and uv.os_uname().sysname or ""
 
@@ -26,10 +25,11 @@ function M.detect()
   -- Windows
   ------------------------------------------------
   if sys == "Windows_NT" or vim.fn.has("win32") == 1 then
-
     local ffi = require("ffi")
 
-    pcall(ffi.cdef, [[
+    pcall(
+      ffi.cdef,
+      [[
       typedef unsigned int UINT;
       typedef void* HWND;
       typedef uintptr_t WPARAM;
@@ -39,7 +39,8 @@ function M.detect()
       HWND GetForegroundWindow(void);
       HWND ImmGetDefaultIMEWnd(HWND hWnd);
       LRESULT SendMessageA(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
-    ]])
+    ]]
+    )
 
     local user32 = ffi.load("user32")
     local imm32 = ffi.load("imm32")
@@ -69,6 +70,7 @@ function M.detect()
 
     -- Update IME window handle whenever entering Insert mode
     vim.api.nvim_create_autocmd("InsertEnter", {
+      group = vim.api.nvim_create_augroup("auto_ime_windows", { clear = true }),
       callback = function()
         get_ime_hwnd()
       end,
@@ -234,7 +236,6 @@ function M.detect()
       end
     end
   end
-
 end
 
 return M

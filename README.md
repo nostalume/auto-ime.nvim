@@ -20,7 +20,7 @@ This plugin solves this problem by automatically switching your input method bac
 
 ## Installation
 
-### Using [nvim.pack](https://github.com/nvim-pack/nvim-pack)
+### Using [vim.pack](https://neovim.io/doc/user/pack/) (Neovim 0.12+)
 
 Add to your `init.lua`.
 
@@ -60,7 +60,7 @@ use {
 ```lua
 {
   "lvyuemeng/auto-ime.nvim",
-  event = "VeryLazy", -- it only takes < 1ms
+  event = "VeryLazy",
   config = function()
     require("auto-ime").setup()
   end,
@@ -95,7 +95,7 @@ On WSL, setup starts one background PowerShell process. An exit before it is rea
 ```lua
 {
   dir = "~/path/to/dev/auto-ime.nvim",
-  event = "VeryLazy", -- it only takes < 1ms
+  event = "VeryLazy",
   config = function()
     require("auto-ime").setup()
   end,
@@ -111,6 +111,17 @@ Contributions are welcome! Please follow these steps:
 5. Open a Pull Request
 
 Please ensure your code follows the project's coding style and includes appropriate documentation.
+
+### Checks
+
+From the repository root, run:
+
+```sh
+nvim --headless -u NONE -i NONE -l tests/run.lua
+stylua --check lua plugin tests
+```
+
+On Windows, set `AUTO_IME_TEST_POWERSHELL=1` before the Neovim command to also check that the persistent PowerShell worker starts and accepts commands. This does not change the active IME.
 
 ## Thanks
 
