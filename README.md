@@ -4,7 +4,7 @@ A Neovim plugin that automatically switches your input method to Latin when leav
 
 ## Motive
 
-When editing code or writing text in Neovim, users often switch to their native language input method (e.g., Chinese, Japanese) while in insert mode. However, when exiting insert mode to normal mode or command mode, the input method often stays in the non-Latin state, requiring manual switching back to English. This is especially inconvenient when using Vim commands like `h`, `j`, `k`, `l` or other normal mode commands.
+When editing code or writing text in Neovim, users often switch to their native language input method (e.g., Chinese, Japanese, Korean) while in insert mode. However, when exiting insert mode to normal mode or command mode, the input method often stays in the non-Latin state, requiring manual switching back to English. This is especially inconvenient when using Vim commands like `h`, `j`, `k`, `l` or other normal mode commands.
 
 This plugin solves this problem by automatically switching your input method back to Latin/English whenever you leave insert mode or command line mode.
 
@@ -18,6 +18,18 @@ This plugin solves this problem by automatically switching your input method bac
   - **macOS**: `macism` must be installed (available via Homebrew: `brew install macism`)
 
 ## Installation
+
+### Using [nvim.pack](https://github.com/nvim-pack/nvim-pack)
+
+Add to your `init.lua`.
+
+```lua
+vim.pack.add({
+  { src = "https://github.com/lvyuemeng/auto-ime.nvim" },
+})
+
+require("auto-ime").setup()
+```
 
 ### Using [vim-plug](https://github.com/junegunn/vim-plug)
 
@@ -47,7 +59,7 @@ use {
 ```lua
 {
   "lvyuemeng/auto-ime.nvim",
-  event = "InsertEnter",
+  event = "VeryLazy", -- it only takes < 1ms
   config = function()
     require("auto-ime").setup()
   end,
@@ -61,10 +73,10 @@ The plugin works out of the box with default settings. Currently, no additional 
 ## Supported Platforms
 
 | Platform | Input Method Tools Supported |
-|----------|------------------------------|
-| Windows  | Native IME API              |
-| Linux    | fcitx5-remote, ibus         |
-| macOS    | macism                      |
+| -------- | ---------------------------- |
+| Windows  | Native IME API               |
+| Linux    | fcitx5-remote, ibus          |
+| macOS    | macism                       |
 
 ## How It Works
 
@@ -79,6 +91,7 @@ The plugin works out of the box with default settings. Currently, no additional 
 ```lua
 {
   dir = "~/path/to/dev/auto-ime.nvim",
+  event = "VeryLazy", -- it only takes < 1ms
   config = function()
     require("auto-ime").setup()
   end,
