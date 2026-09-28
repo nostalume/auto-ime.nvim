@@ -6,6 +6,9 @@ for _, name in ipairs({ "auto-ime", "auto-ime.core", "auto-ime.platforms", "ffi"
 end
 
 local autocmds = {}
+local foreground = 1
+local ime_windows = { [1] = 2, [3] = 4 }
+local messages = {}
 local ffi = {
   NULL = {},
   cdef = function() end,
@@ -13,16 +16,17 @@ local ffi = {
     if name == "user32" then
       return {
         GetForegroundWindow = function()
-          return 1
+          return foreground
         end,
-        SendMessageA = function()
-          return 0
+        SendMessageA = function(hwnd, _, command)
+          messages[#messages + 1] = { hwnd = hwnd, command = command }
+          return (command == 1 or command == 5) and 1 or 0
         end,
       }
     end
     return {
-      ImmGetDefaultIMEWnd = function()
-        return 2
+      ImmGetDefaultIMEWnd = function(hwnd)
+        return ime_windows[hwnd]
       end,
     }
   end,
@@ -79,9 +83,37 @@ local function count(event)
   return result
 end
 
-assert(count("InsertEnter") == 1, "repeated setup must register one Windows InsertEnter handler")
+assert(count("InsertEnter") == 0, "fresh target selection must not require an InsertEnter handler")
 assert(count("InsertLeave") == 1, "repeated setup must register one InsertLeave handler")
 assert(count("CmdlineLeave") == 1, "repeated setup must register one CmdlineLeave handler")
+
+local function switch(event)
+  for _, autocmd in ipairs(autocmds) do
+    if autocmd.event == (event or "InsertLeave") then
+      autocmd.callback()
+      return
+    end
+  end
+  error("missing " .. (event or "InsertLeave") .. " handler")
+end
+
+switch()
+assert(#messages == 4 and messages[1].hwnd == 2, "fresh IME target must receive both mode updates")
+foreground = nil
+switch()
+assert(#messages == 4, "null foreground must not reuse a previous IME target")
+foreground = ffi.NULL
+switch()
+assert(#messages == 4, "null HWND must not reuse a previous IME target")
+foreground = 3
+switch("CmdlineLeave")
+assert(#messages == 8 and messages[5].hwnd == 4, "changed foreground must use its fresh IME target")
+ime_windows[3] = ffi.NULL
+switch()
+assert(#messages == 8, "null IME HWND must not reuse a previous target")
+foreground = 5
+switch()
+assert(#messages == 8, "missing IME target must not reuse a previous target")
 
 _G.vim = real_vim
 for name, entry in pairs(loaded) do
