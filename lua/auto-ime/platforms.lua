@@ -1,7 +1,6 @@
 local M = {}
 
-function M.detect(opts)
-  opts = opts or {}
+function M.detect()
 
   local uv = vim.uv or vim.loop
   local sys = uv and uv.os_uname().sysname or ""
@@ -85,43 +84,55 @@ function M.detect(opts)
     or (sys == "Linux" and (vim.env.WSL_DISTRO_NAME ~= nil or vim.env.WSL_INTEROP ~= nil))
 
   if is_wsl then
-    if opts.wsl_command then
-      local cmd = opts.wsl_command
-      return function()
-        vim.fn.system(cmd)
-      end
+    local ps_cmd = nil
+    if vim.fn.executable("powershell.exe") == 1 then
+      ps_cmd = "powershell.exe"
+    elseif vim.fn.executable("/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe") == 1 then
+      ps_cmd = "/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe"
     end
 
-    -- 1. Windows host IME tools (im-select.exe, zenhan.exe)
-    local im_select = nil
-    if vim.fn.executable("im-select.exe") == 1 then
-      im_select = "im-select.exe"
-    else
-      local common_paths = {
-        "/mnt/c/Windows/System32/im-select.exe",
-        "/mnt/c/Windows/im-select.exe",
-      }
-      for _, path in ipairs(common_paths) do
-        if vim.fn.executable(path) == 1 then
-          im_select = path
-          break
+    if ps_cmd then
+      local job_id = vim.fn.jobstart({ ps_cmd, "-NoProfile", "-NonInteractive", "-Command", "-" }, {
+        pty = false,
+        stdin = "pipe",
+      })
+
+      if job_id > 0 then
+        local init_script = table.concat({
+          'Add-Type @"',
+          "using System;",
+          "using System.Runtime.InteropServices;",
+          "public class WinIME {",
+          '    [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();',
+          '    [DllImport("imm32.dll")] public static extern IntPtr ImmGetDefaultIMEWnd(IntPtr hWnd);',
+          '    [DllImport("user32.dll")] public static extern IntPtr SendMessageA(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);',
+          "    public static void ToLatin() {",
+          "        IntPtr fg = GetForegroundWindow();",
+          "        if (fg == IntPtr.Zero) return;",
+          "        IntPtr ime = ImmGetDefaultIMEWnd(fg);",
+          "        if (ime == IntPtr.Zero) return;",
+          "        SendMessageA(ime, 0x0283, (IntPtr)0x0006, IntPtr.Zero);",
+          "        SendMessageA(ime, 0x0283, (IntPtr)0x0002, IntPtr.Zero);",
+          "    }",
+          "}",
+          '"@',
+        }, "\r\n")
+
+        vim.fn.chansend(job_id, init_script .. "\r\n")
+
+        vim.api.nvim_create_autocmd("VimLeavePre", {
+          callback = function()
+            pcall(vim.fn.chanclose, job_id, "stdin")
+          end,
+        })
+
+        return function()
+          pcall(vim.fn.chansend, job_id, "[WinIME]::ToLatin()\r\n")
         end
       end
     end
 
-    if im_select then
-      return function()
-        vim.fn.system(im_select .. " 1033")
-      end
-    end
-
-    if vim.fn.executable("zenhan.exe") == 1 then
-      return function()
-        vim.fn.system("zenhan.exe 0")
-      end
-    end
-
-    -- 2. Linux GUI IME in WSLg (fcitx5, ibus)
+    -- Fallback for WSLg (Linux GUI desktop) with fcitx5 / ibus
     if vim.fn.executable("fcitx5-remote") == 1 then
       return function()
         if tonumber(vim.fn.system("fcitx5-remote")) == 2 then
