@@ -26,7 +26,7 @@ Add to your `init.lua`.
 
 ```lua
 vim.pack.add({
-  { src = "https://github.com/lvyuemeng/auto-ime.nvim" },
+  { src = "https://github.com/nostalume/auto-ime.nvim" },
 })
 
 require("auto-ime").setup()
@@ -35,7 +35,7 @@ require("auto-ime").setup()
 ### Using [vim-plug](https://github.com/junegunn/vim-plug)
 
 ```vim
-Plug 'lvyuemeng/auto-ime.nvim'
+Plug 'nostalume/auto-ime.nvim'
 ```
 
 Then add to your `init.lua`.
@@ -48,7 +48,7 @@ require("auto-ime").setup()
 
 ```lua
 use {
-  "lvyuemeng/auto-ime.nvim",
+  "nostalume/auto-ime.nvim",
   config = function()
     require("auto-ime").setup()
   end
@@ -59,7 +59,7 @@ use {
 
 ```lua
 {
-  "lvyuemeng/auto-ime.nvim",
+  "nostalume/auto-ime.nvim",
   event = "VeryLazy",
   config = function()
     require("auto-ime").setup()
