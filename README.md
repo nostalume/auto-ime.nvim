@@ -11,9 +11,10 @@ This plugin solves this problem by automatically switching your input method bac
 ### Prerequisites
 
 - **Neovim** 0.9.0 or later
-- **Operating System**: Windows, Linux, or macOS
+- **Operating System**: Windows, WSL, Linux, or macOS
 - **Platform-specific requirements**:
   - **Windows**: **Nothing**
+  - **WSL**: Windows interop enabled and `powershell.exe` available (on `PATH` or at the default `/mnt/c/Windows/System32/WindowsPowerShell/v1.0/` path). For a Linux-native IME in WSLg, `fcitx5-remote` or `ibus` is used if PowerShell is unavailable or fails.
   - **Linux**: `fcitx5-remote` or `ibus` must be installed and executable
   - **macOS**: `macism` must be installed (available via Homebrew: `brew install macism`)
 
@@ -72,17 +73,20 @@ The plugin works out of the box with default settings. Currently, no additional 
 
 ## Supported Platforms
 
-| Platform | Input Method Tools Supported |
-| -------- | ---------------------------- |
-| Windows  | Native IME API               |
-| Linux    | fcitx5-remote, ibus          |
-| macOS    | macism                       |
+| Platform | Input Method Tools Supported                                  |
+| -------- | ------------------------------------------------------------- |
+| Windows  | Native IME API                                                |
+| WSL      | Windows PowerShell via interop; fcitx5-remote or ibus fallback |
+| Linux    | fcitx5-remote, ibus                                           |
+| macOS    | macism                                                        |
 
 ## How It Works
 
 1. When Neovim starts, the plugin detects your operating system
 2. It registers autocommands for `InsertLeave` and `CmdlineLeave` events
 3. When you exit insert mode or command line mode, the plugin automatically calls the appropriate system API or command to switch your input method back to Latin/English
+
+On WSL, setup starts one background PowerShell process. An exit before it is ready is not replayed later, so a delayed command cannot change the IME after you have moved to another window.
 
 ## Contributing
 
