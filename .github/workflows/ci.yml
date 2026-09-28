@@ -1,0 +1,72 @@
+name: CI
+
+"on":
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    name: Resolve latest Neovim
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - name: Resolve latest stable release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(gh api repos/neovim/neovim/releases/latest --jq .tag_name)
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Unexpected Neovim release tag: $tag" >&2
+            exit 1
+          fi
+          printf 'tag=%s\nversion=%s\n' "$tag" "${tag#v}" >> "$GITHUB_OUTPUT"
+
+  lint:
+    name: StyLua
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: JohnnyMorganz/stylua-action@76fd70c03e6340ceaf673366712db9b20560b402 # v5.0.0
+        with:
+          token: ${{ github.token }}
+          version: "2.5.2"
+          args: --check lua plugin tests
+
+  test:
+    name: Neovim ${{ matrix.nvim }} / ${{ matrix.os }}
+    needs: release
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025, macos-15-intel]
+        nvim: [minimum, latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: rhysd/action-setup-vim@febef33995d6649302e9d88dda81e071b68f16a7 # v1.6.1
+        with:
+          neovim: "true"
+          version: ${{ matrix.nvim == 'minimum' && 'v0.9.0' || needs.release.outputs.tag }}
+      - name: Test platform behavior
+        env:
+          AUTO_IME_EXPECT_NVIM: ${{ matrix.nvim == 'minimum' && '0.9.0' || needs.release.outputs.version }}
+          AUTO_IME_TEST_POWERSHELL: ${{ runner.os == 'Windows' && '1' || '0' }}
+        run: |
+          nvim --version
+          nvim --headless -u NONE -i NONE -l tests/run.lua
+      - name: Smoke-test native Windows setup
+        if: runner.os == 'Windows'
+        run: nvim --headless -u NONE -i NONE --cmd "set rtp+=." -c "lua require('auto-ime').setup()" -c qa

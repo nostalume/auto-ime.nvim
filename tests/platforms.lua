@@ -3,11 +3,19 @@ local real_vim = vim
 local function scenario(options)
   local jobs, sends, autocmds, systems, stopped, timers = {}, {}, {}, {}, {}, {}
   local fake_vim = {
-    uv = { os_uname = function() return { sysname = "Linux" } end },
+    uv = {
+      os_uname = function()
+        return { sysname = options.sys or "Linux" }
+      end,
+    },
     env = options.wsl and { WSL_DISTRO_NAME = "test" } or {},
     fn = {
-      has = function() return 0 end,
-      executable = function(name) return options.executables[name] and 1 or 0 end,
+      has = function()
+        return 0
+      end,
+      executable = function(name)
+        return options.executables[name] and 1 or 0
+      end,
       system = function(command)
         systems[#systems + 1] = command
         return command == "fcitx5-remote" and "2" or ""
@@ -18,10 +26,14 @@ local function scenario(options)
       end,
       chansend = function(_, value)
         sends[#sends + 1] = value
-        if options.send_failure then return 0 end
+        if options.send_failure then
+          return 0
+        end
         return #value
       end,
-      jobstop = function(id) stopped[#stopped + 1] = id end,
+      jobstop = function(id)
+        stopped[#stopped + 1] = id
+      end,
     },
     api = {
       nvim_create_autocmd = function(event, spec)
@@ -108,6 +120,10 @@ local linux = scenario({ wsl = false, executables = { ibus = true } })
 linux.invoke(assert(linux.detect()))
 assert(linux.systems[1] == "ibus engine xkb:us::eng", "native Linux behavior must remain intact")
 
+local mac = scenario({ sys = "Darwin", executables = { macism = true } })
+mac.invoke(assert(mac.detect()))
+assert(mac.systems[1] == "macism com.apple.keylayout.ABC", "macOS command must be selected")
+
 if os.getenv("AUTO_IME_TEST_POWERSHELL") == "1" then
   local output, errors = {}, {}
   local id = real_vim.fn.jobstart(wsl.jobs[1].command, {
@@ -125,11 +141,17 @@ if os.getenv("AUTO_IME_TEST_POWERSHELL") == "1" then
   })
   assert(id > 0, "could not start PowerShell")
   assert(real_vim.fn.chansend(id, wsl.sends[1]) > 0, "could not send PowerShell script")
-  real_vim.wait(10000, function() return #output > 0 or #errors > 0 end, 10)
-  assert(table.concat(output, "\n"):find("AUTO_IME_READY", 1, true),
-    "PowerShell initialization failed: " .. table.concat(output, "\n") .. " / " .. table.concat(errors, "\n"))
+  real_vim.wait(10000, function()
+    return #output > 0 or #errors > 0
+  end, 10)
+  assert(
+    table.concat(output, "\n"):find("AUTO_IME_READY", 1, true),
+    "PowerShell initialization failed: " .. table.concat(output, "\n") .. " / " .. table.concat(errors, "\n")
+  )
   real_vim.fn.chansend(id, "Write-Output 43\r\n")
-  real_vim.wait(5000, function() return table.concat(output, "\n"):find("43", 1, true) ~= nil end, 10)
+  real_vim.wait(5000, function()
+    return table.concat(output, "\n"):find("43", 1, true) ~= nil
+  end, 10)
   real_vim.fn.chanclose(id, "stdin")
   assert(real_vim.fn.jobwait({ id }, 20000)[1] == 0, "PowerShell initialization did not finish")
   assert(table.concat(output, "\n"):find("43", 1, true), "PowerShell did not accept a later command")
