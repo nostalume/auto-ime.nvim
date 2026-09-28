@@ -3,7 +3,8 @@ local platform = require("auto-ime.platforms")
 
 function M.setup(opts)
 
-  local ensure_latin = platform.detect()
+  opts = opts or {}
+  local ensure_latin = platform.detect(opts)
 
   if not ensure_latin then
     return

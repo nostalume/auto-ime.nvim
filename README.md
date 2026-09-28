@@ -11,9 +11,10 @@ This plugin solves this problem by automatically switching your input method bac
 ### Prerequisites
 
 - **Neovim** 0.9.0 or later
-- **Operating System**: Windows, Linux, or macOS
+- **Operating System**: Windows, WSL, Linux, or macOS
 - **Platform-specific requirements**:
   - **Windows**: **Nothing**
+  - **WSL**: `im-select.exe` (recommended, in Windows/WSL PATH) or `zenhan.exe`, or `fcitx5`/`ibus` for WSLg
   - **Linux**: `fcitx5-remote` or `ibus` must be installed and executable
   - **macOS**: `macism` must be installed (available via Homebrew: `brew install macism`)
 
@@ -68,15 +69,23 @@ use {
 
 ## Configuration
 
-The plugin works out of the box with default settings. Currently, no additional configuration options are available.
+The plugin works out of the box with default settings.
+
+```lua
+require("auto-ime").setup({
+  -- Optional: customize command for WSL (defaults to auto-detecting im-select.exe / zenhan.exe / fcitx5 / ibus)
+  -- wsl_command = "im-select.exe 1033",
+})
+```
 
 ## Supported Platforms
 
-| Platform | Input Method Tools Supported |
-| -------- | ---------------------------- |
-| Windows  | Native IME API               |
-| Linux    | fcitx5-remote, ibus          |
-| macOS    | macism                       |
+| Platform | Input Method Tools Supported            |
+| -------- | --------------------------------------- |
+| Windows  | Native IME API                          |
+| WSL      | im-select.exe, zenhan.exe, fcitx5, ibus |
+| Linux    | fcitx5-remote, ibus                     |
+| macOS    | macism                                  |
 
 ## How It Works
 
