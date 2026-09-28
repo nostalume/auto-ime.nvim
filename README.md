@@ -86,7 +86,9 @@ The plugin works out of the box with default settings. Currently, no additional 
 2. It registers autocommands for `InsertLeave` and `CmdlineLeave` events
 3. When you exit insert mode or command line mode, the plugin automatically calls the appropriate system API or command to switch your input method back to Latin/English
 
-On WSL, setup starts one background PowerShell process. An exit before it is ready is not replayed later, so a delayed command cannot change the IME after you have moved to another window.
+On Windows, each exit uses the current foreground window's IME handle. If no handle is available, the switch is skipped rather than sent to an older window.
+
+On WSL, setup starts one background PowerShell process. An exit before it is ready is not replayed later, so a delayed command cannot change the IME after you have moved to another window. If the worker fails, the plugin uses a Linux IME tool when available. Otherwise, it warns once. If no switching tool is installed, it warns on the first attempted switch.
 
 ## Contributing
 
